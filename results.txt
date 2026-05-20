@@ -1,0 +1,5 @@
+Ibrahim  | 91 | A
+Sara     | 74 | C
+Omar     | 55 | F
+Mia      | 88 | B
+Tariq    | 63 | D
