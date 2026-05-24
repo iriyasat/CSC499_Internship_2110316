@@ -129,7 +129,9 @@ def clean_row(row):
     if dt is None:
         return None
     cleaned['saledate_obj'] = dt
-    # Store formatted string directly in 'saledate' for VARCHAR database column
-    cleaned['saledate'] = dt.strftime("%d-%m-%Y,%A")
+    # Store standard YYYY-MM-DD format for MySQL DATE type
+    cleaned['saledate'] = dt.strftime("%Y-%m-%d")
+    # Store weekday name under 'saleday'
+    cleaned['saleday'] = dt.strftime("%A")
 
     return cleaned

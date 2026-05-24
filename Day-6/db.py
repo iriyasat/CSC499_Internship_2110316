@@ -44,7 +44,8 @@ def setup_database(conn):
             seller VARCHAR(255),
             mmr INT,
             sellingprice INT,
-            saledate VARCHAR(50),
+            saledate DATE,
+            saleday VARCHAR(20),
             INDEX idx_vin (vin)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
         """

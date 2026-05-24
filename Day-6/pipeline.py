@@ -89,8 +89,8 @@ def main():
     INSERT INTO car_sales (
         year, make, model, trim, body, transmission, vin, state, 
         `condition`, odometer, color, interior, seller, mmr, 
-        sellingprice, saledate
-    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+        sellingprice, saledate, saleday
+    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
     """
 
     # Prepare list of tuples (inserting formatted saledate string directly)
@@ -98,7 +98,7 @@ def main():
         (
             r['year'], r['make'], r['model'], r['trim'], r['body'], r['transmission'], r['vin'], r['state'],
             r['condition'], r['odometer'], r['color'], r['interior'], r['seller'], r['mmr'],
-            r['sellingprice'], r['saledate']
+            r['sellingprice'], r['saledate'], r['saleday']
         )
         for r in cleaned_records
     ]

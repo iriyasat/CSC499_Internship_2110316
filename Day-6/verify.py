@@ -31,7 +31,7 @@ def verify_data():
         columns_to_check = [
             "year", "make", "model", "trim", "body", "transmission", "vin", 
             "state", "`condition`", "odometer", "color", "interior", "seller", 
-            "mmr", "sellingprice", "saledate"
+            "mmr", "sellingprice", "saledate", "saleday"
         ]
         
         null_counts = {}
@@ -51,19 +51,19 @@ def verify_data():
 
         # 3. Retrieve Chronologically First and Last Rows (using auto-increment ID order)
         print("\n[ Retrieving chronological samples (Sorted by database ID order)... ]")
-        cursor.execute("SELECT id, year, make, model, vin, sellingprice, saledate FROM car_sales ORDER BY id ASC LIMIT 3")
+        cursor.execute("SELECT id, year, make, model, vin, sellingprice, saledate, saleday FROM car_sales ORDER BY id ASC LIMIT 3")
         first_three = cursor.fetchall()
         
-        cursor.execute("SELECT id, year, make, model, vin, sellingprice, saledate FROM car_sales ORDER BY id DESC LIMIT 3")
+        cursor.execute("SELECT id, year, make, model, vin, sellingprice, saledate, saleday FROM car_sales ORDER BY id DESC LIMIT 3")
         last_three = cursor.fetchall()
         
         print("\n--- Earliest Sold Vehicles ---")
         for row in first_three:
-            print(f"ID: {row['id']} | VIN: {row['vin']} | {row['year']} {row['make']} {row['model']} | Price: ${row['sellingprice']} | Sale Date: {row['saledate']}")
+            print(f"ID: {row['id']} | VIN: {row['vin']} | {row['year']} {row['make']} {row['model']} | Price: ${row['sellingprice']} | Sale Date: {row['saledate']} ({row['saleday']})")
             
         print("\n--- Latest Sold Vehicles (descending order) ---")
         for row in last_three:
-            print(f"ID: {row['id']} | VIN: {row['vin']} | {row['year']} {row['make']} {row['model']} | Price: ${row['sellingprice']} | Sale Date: {row['saledate']}")
+            print(f"ID: {row['id']} | VIN: {row['vin']} | {row['year']} {row['make']} {row['model']} | Price: ${row['sellingprice']} | Sale Date: {row['saledate']} ({row['saleday']})")
 
         cursor.close()
         conn.close()

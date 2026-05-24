@@ -1,187 +1,241 @@
 import os
 import sys
-
 import mysql.connector
-import pandas as pd
+from mysql.connector import Error
+from dotenv import load_dotenv
+from tabulate import tabulate
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
+# Load environment variables
+load_dotenv()
 
+# Sibling paths config
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from config import DB_HOST, DB_PORT, DB_USER, DB_PASSWORD, DB_NAME
 
-TABLE_NAME = "car_sales"
-
-
-def get_clean_data():
-    connection = mysql.connector.connect(
-        host=DB_HOST,
-        port=int(DB_PORT),
-        user=DB_USER,
-        password=DB_PASSWORD,
-        database=DB_NAME,
-    )
-    query = f"""
-        SELECT
-            year, make, model, trim, body, transmission, vin, state,
-            `condition`, odometer, color, interior, seller, mmr,
-            sellingprice, saledate
-        FROM {TABLE_NAME}
-        ORDER BY saledate, id
-    """
-    try:
-        cursor = connection.cursor(dictionary=True)
-        cursor.execute(query)
-        rows = cursor.fetchall()
-        cursor.close()
-        return pd.DataFrame(rows)
-    finally:
-        connection.close()
-
-
-def format_currency(value):
-    if pd.isna(value):
-        return "N/A"
-    return f"${float(value):,.2f}"
-
-
-def print_table(frame, **_ignored):
-    print(frame.to_string(index=False))
+def run_sql_query(cursor, query):
+    """Utility to run a query and fetch all results."""
+    cursor.execute(query)
+    if cursor.description:
+        return cursor.fetchall()
+    return None
 
 def main():
     print("====================================================")
-    print("      VEHICLE SALES DATA ANALYSIS & INSIGHTS")
+    print("      VEHICLE SALES SQL DATA ANALYSIS & INSIGHTS")
     print("====================================================")
-    print(f"Loading cleaned dataset from MySQL table: {DB_NAME}.{TABLE_NAME}\n")
-
-    # 1. Load Dataset
-    df_raw = get_clean_data()
-
-    total_raw_rows, total_raw_cols = df_raw.shape
-    print(f"[1] Dataset Loaded successfully.")
-    print(f"    - Raw Rows: {total_raw_rows}")
-    print(f"    - Raw Columns: {total_raw_cols}\n")
-
-    # 2. Data Cleaning
-    print("[2] Preparing clean MySQL data for analysis...")
+    print(f"Connecting to database: {DB_NAME} on port {DB_PORT}...\n")
     
-    # Create working copy of dataframe
-    df = df_raw.copy()
+    try:
+        conn = mysql.connector.connect(
+            host=DB_HOST,
+            port=int(DB_PORT),
+            user=DB_USER,
+            password=DB_PASSWORD,
+            database=DB_NAME
+        )
+        cursor = conn.cursor(dictionary=True)
+        
+        # 1. Dataset Shape (Total Rows and Columns)
+        # Total Rows
+        cursor.execute("SELECT COUNT(*) AS total_rows FROM car_sales")
+        total_rows = cursor.fetchone()['total_rows']
+        
+        # Total Columns (Base columns in database table)
+        cursor.execute("DESCRIBE car_sales")
+        columns_desc = cursor.fetchall()
+        base_columns_count = len(columns_desc)
+        
+        # We also generate 3 virtual columns (Sale Year, Sale Month, Profit/Loss)
+        total_columns_count = base_columns_count + 3 
+        
+        print("[1] Dataset Loaded (via MySQL Database).")
+        print(f"    - Total Rows in Database: {total_rows}")
+        print(f"    - Table Base Columns: {base_columns_count}")
+        print(f"    - Generated Columns: 3 (Sale Year, Sale Month, Profit/Loss)")
+        print(f"    - Total Displayed Columns: {total_columns_count}\n")
 
-    # Drop duplicate rows defensively; the pipeline already deduplicates before insert.
-    duplicate_count = df.duplicated().sum()
-    df.drop_duplicates(inplace=True)
-    print(f"    - Duplicate rows removed: {duplicate_count}")
+        # 2. Data Cleaning Validation (Handling missing, duplicates, and types using SQL)
+        print("[2] Running Data Quality Checks (SQL Terms):")
+        
+        # Check for any remaining NULL values in the dataset
+        columns_to_check = [
+            "year", "make", "model", "trim", "body", "transmission", "vin", 
+            "state", "`condition`", "odometer", "color", "interior", "seller", 
+            "mmr", "sellingprice", "saledate", "saleday"
+        ]
+        null_conditions = " OR ".join([f"{col} IS NULL" for col in columns_to_check])
+        cursor.execute(f"SELECT COUNT(*) AS null_count FROM car_sales WHERE {null_conditions}")
+        null_count = cursor.fetchone()['null_count']
+        print(f"    - Rows with missing values (NULL checks): {null_count}")
+        
+        # Check for duplicates based on VIN
+        cursor.execute("SELECT COUNT(*) - COUNT(DISTINCT vin) AS duplicate_vins FROM car_sales")
+        duplicate_count = cursor.fetchone()['duplicate_vins']
+        print(f"    - Duplicate VIN records: {duplicate_count}")
+        
+        # Show column data types using SQL terms
+        print("    - Database Field Types (SQL Describe):")
+        types_table = []
+        for col in columns_desc:
+            types_table.append([col['Field'], col['Type'], col['Null'], col['Key']])
+        print(tabulate(types_table, headers=['Field', 'Type', 'Null', 'Key'], tablefmt='psql'))
+        print()
 
-    # Normalize text columns and convert placeholders to missing values.
-    for col in df.columns:
-        if df[col].dtype == 'object':
-            df[col] = df[col].astype(str).str.strip()
+        # 3. Generate New Columns & Display Data Samples
+        # We select the standard fields and generate Sale Year, Sale Month, and Profit/Loss dynamically.
+        # Profit/Loss = sellingprice - mmr
+        # Sale Year = YEAR(saledate)
+        # Sale Month = MONTHNAME(saledate)
+        query_samples = """
+        SELECT id,
+            year, 
+            make, 
+            model, 
+            trim, 
+            transmission, 
+            vin, 
+            odometer, 
+            sellingprice, 
+            saledate, 
+            saleday,
+            YEAR(saledate) AS `Sale Year`, 
+            MONTHNAME(saledate) AS `Sale Month`, 
+            (sellingprice - mmr) AS `Profit/Loss`
+        FROM car_sales
+        """
+        
+        print("[3] DISPLAYING DATA SAMPLES (with Dynamically Generated Columns)")
+        
+        # Display First 10 Rows
+        print("\n--- FIRST 10 ROWS (ORDER BY year ASC) ---")
+        first_10 = run_sql_query(cursor, f"{query_samples} ORDER BY id ASC LIMIT 10")
+        print(tabulate(first_10, headers='keys', tablefmt='psql', showindex=False))
 
-    missing_placeholders = ['', '—', 'null', 'Null', 'NULL', 'nan', 'Nan', 'NAN', 'none', 'None', 'NONE', 'n/a', 'N/A', 'na', 'NA', '-', 'undefined', 'Undefined']
-    df.replace(missing_placeholders, pd.NA, inplace=True)
+        # Display Last 10 Rows
+        print("\n--- LAST 10 ROWS (ORDER BY year DESC) ---")
+        last_10_desc = run_sql_query(cursor, f"{query_samples} ORDER BY id DESC LIMIT 10")
+        last_10 = list(reversed(last_10_desc))
+        print(tabulate(last_10, headers='keys', tablefmt='psql', showindex=False))
 
-    # Convert numeric columns (coerce invalid characters to missing values).
-    numeric_cols = ['year', 'condition', 'odometer', 'mmr', 'sellingprice']
-    for col in numeric_cols:
-        df[col] = pd.to_numeric(df[col], errors='coerce')
+        # 4. Generate Business Insights using SQL
+        print("\n====================================================")
+        print("                BUSINESS INSIGHTS (SQL)")
+        print("====================================================")
 
-    # Convert saledate into a proper datetime using the MySQL-stored format.
-    df['saledate'] = pd.to_datetime(df['saledate'], format='%d-%m-%Y,%A', errors='coerce')
+        # Insight 1: Top 5 Vehicle Makes by Sales Volume
+        print("\n1. Top 5 Vehicle Makes by Sales Volume (SQL GROUP BY):")
+        query_makes = """
+        SELECT make AS `Make`, COUNT(*) AS `Sales Volume`
+        FROM car_sales
+        GROUP BY make
+        ORDER BY `Sales Volume` DESC
+        LIMIT 5;
+        """
+        top_makes = run_sql_query(cursor, query_makes)
+        print(tabulate(top_makes, headers='keys', tablefmt='psql', showindex=False))
 
-    # Drop any rows with missing or unparseable values.
-    rows_before_dropna = len(df)
-    df.dropna(inplace=True)
-    rows_dropped_nulls = rows_before_dropna - len(df)
-    print(f"    - Rows with missing/invalid/unparseable values removed: {rows_dropped_nulls}")
-
-    # Set appropriate final data types
-    df['year'] = df['year'].astype(int)
-    df['odometer'] = df['odometer'].astype(int)
-    df['mmr'] = df['mmr'].astype(int)
-    df['sellingprice'] = df['sellingprice'].astype(int)
-
-    total_clean_rows, total_clean_cols = df.shape
-    print(f"    - Cleaned Rows remaining: {total_clean_rows}")
-    print(f"    - Cleaned Columns: {total_clean_cols}\n")
-
-    # 3. Generate New Columns
-    print("[3] Generating new columns...")
-    df['Sale Year'] = df['saledate'].dt.year
-    df['Sale Month'] = df['saledate'].dt.strftime('%B')
-    df['Profit/Loss'] = df['sellingprice'] - df['mmr']
-    print("    - Added column: 'Sale Year'")
-    print("    - Added column: 'Sale Month'")
-    print("    - Added column: 'Profit/Loss' (sellingprice - mmr)\n")
-
-    # 4. Display Requested Outputs
-    print("[4] DISPLAYING DATA SAMPLES")
-    print("\n--- FIRST 10 ROWS ---")
-    display_cols = ['year', 'make', 'model', 'trim', 'transmission', 'vin', 'odometer', 'sellingprice', 'saledate', 'Sale Year', 'Sale Month', 'Profit/Loss']
-    print_table(df[display_cols].head(10))
-
-    print("\n--- LAST 10 ROWS ---")
-    print_table(df[display_cols].tail(10))
-
-    print("\n--- DATASET SHAPE SUMMARY ---")
-    shape_df = pd.DataFrame({
-        "Stage": ["Raw Dataset", "Cleaned & Processed Dataset"],
-        "Rows": [total_raw_rows, df.shape[0]],
-        "Columns": [total_raw_cols, df.shape[1]]
-    })
-    print_table(shape_df, tablefmt='grid')
-
-    # 5. Business Insights Generation
-    print("\n====================================================")
-    print("                BUSINESS INSIGHTS")
-    print("====================================================")
-
-    # Insight 1: Top 5 Vehicle Makes by Sales Volume
-    print("\n1. Top 5 Vehicle Makes by Sales Volume:")
-    # Ensure capitalization consistency
-    df['make'] = df['make'].str.title()
-    top_makes = df['make'].value_counts().head(5).reset_index()
-    top_makes.columns = ['Make', 'Sales Volume']
-    print_table(top_makes)
-
-    # Insight 2: Top 5 Most Profitable Vehicle Makes (Average Profit)
-    print("\n2. Top 5 Most Profitable Vehicle Makes (Average Profit/Loss):")
-    profitable_makes = df.groupby('make')['Profit/Loss'].mean().sort_values(ascending=False).head(5).reset_index()
-    profitable_makes.columns = ['Make', 'Avg Profit/Loss ($)']
-    profitable_makes['Avg Profit/Loss ($)'] = profitable_makes['Avg Profit/Loss ($)'].map(format_currency)
-    print_table(profitable_makes)
-
-    # Insight 3: Monthly Sales Volume and Profit Trend
-    print("\n3. Monthly Sales Volume and Profit Trend:")
-    monthly_trend = df.groupby(['Sale Year', 'Sale Month']).agg(
-        Sales_Count=('sellingprice', 'count'),
-        Total_Revenue=('sellingprice', 'sum'),
-        Total_Profit=('Profit/Loss', 'sum')
-    ).reset_index()
+        # Insight 2: Top 5 Most Profitable Vehicle Makes (Average Profit/Loss)
+        print("\n2. Top 5 Most Profitable Vehicle Makes (Average Profit/Loss):")
+        query_profit = """
+        SELECT make AS `Make`, AVG(sellingprice - mmr) AS `Avg Profit/Loss`
+        FROM car_sales
+        GROUP BY make
+        ORDER BY `Avg Profit/Loss` DESC
+        LIMIT 5;
+        """
+        top_profit = run_sql_query(cursor, query_profit)
+        # Format currency in Python for clean display
+        formatted_profit = []
+        for row in top_profit:
+            avg_p = row['Avg Profit/Loss']
+            formatted_profit.append({
+                'Make': row['Make'],
+                'Avg Profit/Loss ($)': f"${avg_p:,.2f}" if avg_p is not None else "$0.00"
+            })
+        print(tabulate(formatted_profit, headers='keys', tablefmt='psql', showindex=False))
     
-    # Sort months chronologically
-    month_order = [
-        'January', 'February', 'March', 'April', 'May', 'June',
-        'July', 'August', 'September', 'October', 'November', 'December'
-    ]
-    monthly_trend['Sale Month'] = pd.Categorical(monthly_trend['Sale Month'], categories=month_order, ordered=True)
-    monthly_trend = monthly_trend.sort_values(['Sale Year', 'Sale Month']).reset_index(drop=True)
+        # Insight 3: Weekly Sales Volume and Profit Trend (SQL Days)
+        print("\n3. Weekly Sales Volume and Profit Trend (SQL Days):")
+        query_weekly = """
+        SELECT 
+            saleday AS `Day of Week`, 
+            COUNT(*) AS `Sales Volume`,
+            SUM(sellingprice) AS `Total Revenue`,
+            SUM(sellingprice - mmr) AS `Total Profit/Loss`
+        FROM car_sales
+        GROUP BY saleday, WEEKDAY(saledate)
+        ORDER BY WEEKDAY(saledate) ASC;
+        """
+        weekly_trend = run_sql_query(cursor, query_weekly)
+        # Format currency
+        formatted_weekly = []
+        for row in weekly_trend:
+            formatted_weekly.append({
+                'Day of Week': row['Day of Week'],
+                'Sales Volume': row['Sales Volume'],
+                'Total Revenue': f"${row['Total Revenue']:,.2f}",
+                'Total Profit/Loss': f"${row['Total Profit/Loss']:,.2f}"
+            })
+        print(tabulate(formatted_weekly, headers='keys', tablefmt='psql', showindex=False))
     
-    monthly_trend['Total_Revenue'] = monthly_trend['Total_Revenue'].map('${:,.2f}'.format)
-    monthly_trend['Total_Profit'] = monthly_trend['Total_Profit'].map('${:,.2f}'.format)
-    monthly_trend = monthly_trend.rename(columns={'Sale Year': 'Year', 'Sale Month': 'Month'})
-    print_table(monthly_trend[['Year', 'Month', 'Sales_Count', 'Total_Revenue', 'Total_Profit']], headers=['Year', 'Month', 'Sales Volume', 'Total Revenue', 'Total Profit/Loss'])
+        # Insight 4: Monthly Sales Volume and Profit Trend
+        print("\n4. Monthly Sales Volume and Profit Trend (SQL Dates):")
+        query_monthly = """
+        SELECT 
+            YEAR(saledate) AS `Year`, 
+            MONTHNAME(saledate) AS `Month`, 
+            COUNT(*) AS `Sales Volume`,
+            SUM(sellingprice) AS `Total Revenue`,
+            SUM(sellingprice - mmr) AS `Total Profit/Loss`,
+            MONTH(saledate) AS `month_num` -- Helper to sort chronologically
+        FROM car_sales
+        GROUP BY YEAR(saledate), MONTHNAME(saledate), MONTH(saledate)
+        ORDER BY `Year` ASC, `month_num` ASC;
+        """
+        monthly_trend = run_sql_query(cursor, query_monthly)
+        # Format currency
+        formatted_monthly = []
+        for row in monthly_trend:
+            formatted_monthly.append({
+                'Year': row['Year'],
+                'Month': row['Month'],
+                'Sales Volume': row['Sales Volume'],
+                'Total Revenue': f"${row['Total Revenue']:,.2f}",
+                'Total Profit/Loss': f"${row['Total Profit/Loss']:,.2f}"
+            })
+        print(tabulate(formatted_monthly, headers='keys', tablefmt='psql', showindex=False))
 
-    # Insight 4: Transmission Type Sales Volume & Average Price Comparison
-    print("\n4. Transmission Type Comparison:")
-    df['transmission'] = df['transmission'].str.lower()
-    trans_comparison = df.groupby('transmission')[['sellingprice', 'Profit/Loss']].agg(
-        Sales_Count=('sellingprice', 'count'),
-        Avg_Selling_Price=('sellingprice', 'mean'),
-        Avg_Profit_Loss=('Profit/Loss', 'mean')
-    ).reset_index()
-    trans_comparison.columns = ['Transmission', 'Sales Volume', 'Avg Selling Price', 'Avg Profit/Loss']
-    trans_comparison['Avg Selling Price'] = trans_comparison['Avg Selling Price'].map('${:,.2f}'.format)
-    trans_comparison['Avg Profit/Loss'] = trans_comparison['Avg Profit/Loss'].map('${:,.2f}'.format)
-    print_table(trans_comparison)
+        # Insight 5: Transmission Type Sales Volume & Average Price Comparison
+        print("\n5. Transmission Type Comparison:")
+        query_transmission = """
+        SELECT 
+            transmission AS `Transmission`, 
+            COUNT(*) AS `Sales Volume`,
+            AVG(sellingprice) AS `Avg Selling Price`,
+            AVG(sellingprice - mmr) AS `Avg Profit/Loss`
+        FROM car_sales
+        GROUP BY transmission;
+        """
+        trans_comparison = run_sql_query(cursor, query_transmission)
+        # Format currency
+        formatted_trans = []
+        for row in trans_comparison:
+            formatted_trans.append({
+                'Transmission': row['Transmission'],
+                'Sales Volume': row['Sales Volume'],
+                'Avg Selling Price': f"${row['Avg Selling Price']:,.2f}",
+                'Avg Profit/Loss': f"${row['Avg Profit/Loss']:,.2f}"
+            })
+        print(tabulate(formatted_trans, headers='keys', tablefmt='psql', showindex=False))
+
+        cursor.close()
+        conn.close()
+        print("\n====================================================")
+        print("[+] SQL Data Analysis completed successfully.")
+        
+    except Error as e:
+        print(f"[-] Database Error during analysis: {e}")
+        sys.exit(1)
 
 if __name__ == "__main__":
     main()
