@@ -87,14 +87,12 @@ def main():
         # Sale Year = YEAR(saledate)
         # Sale Month = MONTHNAME(saledate)
         query_samples = """
-        SELECT id,
+        SELECT
+            id,
             year, 
             make, 
-            model, 
-            trim, 
-            transmission, 
-            vin, 
-            odometer, 
+            model,
+            transmission,  
             sellingprice, 
             saledate, 
             saleday,
@@ -107,16 +105,16 @@ def main():
         print("[3] DISPLAYING DATA SAMPLES (with Dynamically Generated Columns)")
         
         # Display First 10 Rows
-        print("\n--- FIRST 10 ROWS (ORDER BY year ASC) ---")
+        print("\n--- FIRST 10 ROWS (ORDER BY id ASC) ---")
         first_10 = run_sql_query(cursor, f"{query_samples} ORDER BY id ASC LIMIT 10")
         print(tabulate(first_10, headers='keys', tablefmt='psql', showindex=False))
 
         # Display Last 10 Rows
-        print("\n--- LAST 10 ROWS (ORDER BY year DESC) ---")
+        print("\n--- LAST 10 ROWS (ORDER BY id DESC) ---")
         last_10_desc = run_sql_query(cursor, f"{query_samples} ORDER BY id DESC LIMIT 10")
         last_10 = list(reversed(last_10_desc))
         print(tabulate(last_10, headers='keys', tablefmt='psql', showindex=False))
-
+        
         # 4. Generate Business Insights using SQL
         print("\n====================================================")
         print("                BUSINESS INSIGHTS (SQL)")
