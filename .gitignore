@@ -1,3 +1,7 @@
 .jupyter/
 .ipynb_checkpoints/
+.antigravitycli/
+.venv/
+.vscode/
 Python School/
+ibrahim-hasan.code-workspace
