@@ -27,6 +27,9 @@ const state = {
   currentSales: [] // Caches rows on the current page for CRUD edits
 };
 
+// Client-side table sorting state
+state.databaseSort = { field: null, order: 'asc' };
+
 // Utilities & Formatting
 const formatCurrency = (val) => {
   if (val === null || val === undefined) return '$0.00';
@@ -105,8 +108,10 @@ function initNavigation() {
       
       state.activeTab = targetTab;
       loadActiveTab();
+      // filters are now contextual inside the Sales Database tab; no global toggle needed
     });
   });
+
 }
 
 // Load current tab data
@@ -660,76 +665,48 @@ async function loadDatabaseTable() {
   tbody.innerHTML = `<tr><td colspan="15" class="text-center">Querying database table...</td></tr>`;
 
   try {
-    const query = new URLSearchParams({
+    const queryObj = {
       page: state.pagination.page,
       limit: state.pagination.limit,
       search: state.filters.search,
       make: state.filters.make,
       year: state.filters.year,
       transmission: state.filters.transmission
-    }).toString();
+    };
+
+    if (state.databaseSort && state.databaseSort.field) {
+      queryObj.sortField = state.databaseSort.field;
+      queryObj.sortOrder = state.databaseSort.order || 'asc';
+    }
+
+    const query = new URLSearchParams(queryObj).toString();
 
     const res = await fetch(`/api/sales?${query}`);
     const data = await res.json();
 
     const sales = data.sales;
     const pag = data.pagination;
-    
+
     // Cache current page records for edits
     state.currentSales = sales;
-    
+
     // Update pagination state
     state.pagination.totalPages = pag.totalPages;
     state.pagination.totalRecords = pag.totalRecords;
-    
+
     // Render counts label
     document.getElementById('table-totals-label').innerText = 
       `Showing records ${formatNumber(Math.min((pag.currentPage - 1) * pag.limit + 1, pag.totalRecords))} ` +
       `to ${formatNumber(Math.min(pag.currentPage * pag.limit, pag.totalRecords))} of ${formatNumber(pag.totalRecords)}`;
-    
+
     if (sales.length === 0) {
       tbody.innerHTML = `<tr><td colspan="15" class="text-center">No matching database sales records found.</td></tr>`;
       updatePaginationControls();
       return;
     }
 
-    let rowsHtml = '';
-    sales.forEach(row => {
-      const margin = parseInt(row.profit_loss);
-      const badgeClass = margin >= 0 ? 'profit-badge positive' : 'profit-badge negative';
-      const marginStr = margin >= 0 ? `+${formatCurrency(margin)}` : formatCurrency(margin);
-      
-      const dateRaw = new Date(row.saledate);
-      const dateStr = isNaN(dateRaw) ? row.saledate : dateRaw.toISOString().split('T')[0];
-
-      rowsHtml += `
-        <tr>
-          <td>${row.id}</td>
-          <td>${row.year}</td>
-          <td><strong>${row.make}</strong></td>
-          <td>${row.model}</td>
-          <td>${row.trim}</td>
-          <td>${row.body}</td>
-          <td>${row.transmission}</td>
-          <td>${formatNumber(row.odometer)}</td>
-          <td>${formatDecimal(row.condition, 1)}</td>
-          <td>${row.state}</td>
-          <td>${formatCurrency(row.mmr)}</td>
-          <td><strong>${formatCurrency(row.sellingprice)}</strong></td>
-          <td><span class="${badgeClass}">${marginStr}</span></td>
-          <td>${dateStr} (${row.saleday})</td>
-          <td>
-            <div class="action-btns">
-              <button class="edit-btn" onclick="openEditRecordModal(${row.id})">Edit</button>
-              <button class="delete-btn" onclick="triggerDeleteRecord(${row.id})">Delete</button>
-            </div>
-          </td>
-        </tr>
-      `;
-    });
-
-    tbody.innerHTML = rowsHtml;
-    updatePaginationControls();
+    // Render rows (server already returned requested page & sort)
+    renderSalesRows(sales);
 
   } catch (err) {
     console.error('[-] Error fetching database table details:', err);
@@ -761,6 +738,8 @@ function initDatabasePagination() {
     state.pagination.page = 1;
     loadDatabaseTable();
   });
+  // Initialize table sorting hooks for the sales table
+  initTableSorting();
 }
 
 function updatePaginationControls() {
@@ -772,6 +751,150 @@ function updatePaginationControls() {
   nextBtn.disabled = state.pagination.page >= state.pagination.totalPages;
   
   details.innerText = `Page ${state.pagination.page} of ${state.pagination.totalPages || 1}`;
+}
+// (filters were relocated to the Sales Database tab; no global toggle required)
+
+// --- Table Sorting Helpers ---
+function mapHeaderToField(label) {
+  const map = {
+    'ID': 'id',
+    'Year': 'year',
+    'Make': 'make',
+    'Model': 'model',
+    'Trim': 'trim',
+    'Body': 'body',
+    'Trans': 'transmission',
+    'Odometer': 'odometer',
+    'Condition': 'condition',
+    'State': 'state',
+    'MMR': 'mmr',
+    'Selling Price': 'sellingprice',
+    'Margin': 'profit_loss',
+    'Sale Date': 'saledate'
+  };
+  return map[label] || null;
+}
+
+function compareValues(a, b, field) {
+  if (a == null && b == null) return 0;
+  if (a == null) return -1;
+  if (b == null) return 1;
+
+  // Date fields
+  if (field === 'saledate') {
+    const da = new Date(a);
+    const db = new Date(b);
+    return da - db;
+  }
+
+  // Numeric fields
+  if (['id','year','odometer','condition','mmr','sellingprice','profit_loss'].includes(field)) {
+    return Number(a) - Number(b);
+  }
+
+  // Default string compare
+  return String(a).localeCompare(String(b));
+}
+
+function sortAndRenderSales() {
+  const sortField = state.databaseSort.field;
+  const sortOrder = state.databaseSort.order === 'asc' ? 1 : -1;
+
+  if (!sortField) {
+    // No sort requested; just render current cache
+    renderSalesRows(state.currentSales);
+    return;
+  }
+
+  const sorted = [...state.currentSales].sort((x, y) => {
+    const res = compareValues(x[sortField], y[sortField], sortField);
+    return res * sortOrder;
+  });
+
+  renderSalesRows(sorted);
+}
+
+function renderSalesRows(sales) {
+  const tbody = document.getElementById('sales-table-body');
+  if (!tbody) return;
+
+  if (!Array.isArray(sales) || sales.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="15" class="text-center">No matching database sales records found.</td></tr>`;
+    updatePaginationControls();
+    return;
+  }
+
+  let rowsHtml = '';
+  sales.forEach((row, idx) => {
+    const margin = parseInt(row.profit_loss);
+    const badgeClass = margin >= 0 ? 'profit-badge positive' : 'profit-badge negative';
+    const marginStr = margin >= 0 ? `+${formatCurrency(margin)}` : formatCurrency(margin);
+    const dateRaw = new Date(row.saledate);
+    const dateStr = isNaN(dateRaw) ? row.saledate : dateRaw.toISOString().split('T')[0];
+
+    // Compute human-friendly row number based on pagination offset
+    const rowNumber = ((state.pagination.page - 1) * state.pagination.limit) + idx + 1;
+
+    rowsHtml += `
+      <tr>
+        <td>${rowNumber}</td>
+        <td>${row.id}</td>
+        <td>${row.year}</td>
+        <td><strong>${row.make}</strong></td>
+        <td>${row.model}</td>
+        <td>${row.trim}</td>
+        <td>${row.body}</td>
+        <td>${row.transmission}</td>
+        <td>${formatNumber(row.odometer)}</td>
+        <td>${formatDecimal(row.condition, 1)}</td>
+        <td>${row.state}</td>
+        <td>${formatCurrency(row.mmr)}</td>
+        <td><strong>${formatCurrency(row.sellingprice)}</strong></td>
+        <td><span class="${badgeClass}">${marginStr}</span></td>
+        <td>${dateStr} (${row.saleday})</td>
+        <td>
+          <div class="action-btns">
+            <button class="edit-btn" onclick="openEditRecordModal(${row.id})">Edit</button>
+            <button class="delete-btn" onclick="triggerDeleteRecord(${row.id})">Delete</button>
+          </div>
+        </td>
+      </tr>
+    `;
+  });
+
+  tbody.innerHTML = rowsHtml;
+  updatePaginationControls();
+}
+
+function initTableSorting() {
+  const table = document.getElementById('sales-data-table');
+  if (!table) return;
+  const headers = table.querySelectorAll('thead th');
+  headers.forEach(th => {
+    if (th.classList.contains('actions-header')) return;
+    // Respect an existing data-label attribute (useful when displayed text differs from mapped field)
+    const label = th.dataset.label || th.innerText.trim();
+    if (!th.dataset.label) th.dataset.label = label;
+    th.style.cursor = 'pointer';
+    th.addEventListener('click', () => {
+      const field = mapHeaderToField(th.dataset.label);
+      if (!field) return;
+      if (state.databaseSort.field === field) {
+        state.databaseSort.order = state.databaseSort.order === 'asc' ? 'desc' : 'asc';
+      } else {
+        state.databaseSort.field = field;
+        state.databaseSort.order = 'asc';
+      }
+      // Update header arrows
+      headers.forEach(h => {
+        if (h.dataset && h.dataset.label) h.innerText = h.dataset.label;
+      });
+      th.innerText = th.dataset.label + (state.databaseSort.order === 'asc' ? ' ▲' : ' ▼');
+
+      // Use server-side sorting: request page from backend with sort params
+      loadDatabaseTable();
+    });
+  });
 }
 
 

@@ -21,7 +21,7 @@ DB_NAME = os.getenv("DB_NAME", "vehicle_sales_db")
 
 # CSV & Ingestion Configuration
 CSV_FILE_PATH = os.path.join(root_dir, "data", "car_prices.csv")
-MAX_ROWS = 50000
+MAX_ROWS = 1500
 
 
 def connect_mysql():

@@ -43,43 +43,7 @@
 
       <hr class="sidebar-divider">
 
-      <!-- Filter Controls Panel -->
-      <div class="filters-section">
-        <h3>Filter Controls</h3>
-        
-        <div class="filter-group">
-          <label for="search-input">Global Search</label>
-          <div class="search-box">
-            <input type="text" id="search-input" placeholder="VIN, Model, Seller...">
-            <span class="search-clear" id="search-clear-btn" style="display:none;">&times;</span>
-          </div>
-        </div>
-
-        <div class="filter-group">
-          <label for="filter-make">Vehicle Make</label>
-          <select id="filter-make">
-            <option value="">All Makes</option>
-          </select>
-        </div>
-
-        <div class="filter-group">
-          <label for="filter-year">Model Year</label>
-          <select id="filter-year">
-            <option value="">All Years</option>
-          </select>
-        </div>
-
-        <div class="filter-group">
-          <label for="filter-transmission">Transmission</label>
-          <select id="filter-transmission">
-            <option value="">All Types</option>
-            <option value="automatic">Automatic</option>
-            <option value="manual">Manual</option>
-          </select>
-        </div>
-
-        <button class="reset-btn" id="reset-filters-btn">Reset Filters</button>
-      </div>
+      <!-- (Filters moved to Sales Database tab to keep controls contextual) -->
 
       <div class="sidebar-footer">
         <div class="status-indicator">
@@ -257,15 +221,51 @@
             <div class="left-controls">
               <h3>Vehicle Sales Records</h3>
               <p id="table-totals-label">Showing records...</p>
+              <!-- Inline filter controls moved here from sidebar for contextual use -->
+              <div class="filters-section">
+                <h3>Filter Controls</h3>
+                <div class="filter-group">
+                  <label for="search-input">Global Search</label>
+                  <div class="search-box">
+                    <input type="text" id="search-input" placeholder="VIN, Model, Seller...">
+                    <span class="search-clear" id="search-clear-btn" style="display:none;">&times;</span>
+                  </div>
+                </div>
+
+                <div class="filter-group">
+                  <label for="filter-make">Vehicle Make</label>
+                  <select id="filter-make">
+                    <option value="">All Makes</option>
+                  </select>
+                </div>
+
+                <div class="filter-group">
+                  <label for="filter-year">Model Year</label>
+                  <select id="filter-year">
+                    <option value="">All Years</option>
+                  </select>
+                </div>
+
+                <div class="filter-group">
+                  <label for="filter-transmission">Transmission</label>
+                  <select id="filter-transmission">
+                    <option value="">All Types</option>
+                    <option value="automatic">Automatic</option>
+                    <option value="manual">Manual</option>
+                  </select>
+                </div>
+
+                <button class="reset-btn" id="reset-filters-btn">Reset Filters</button>
+              </div>
             </div>
             <div class="right-controls">
               <button class="add-record-btn" id="add-record-btn"><span class="btn-icon">＋</span> Add New Record</button>
               <label for="table-limit-select">Rows per page:</label>
               <select id="table-limit-select">
                 <option value="10" selected>10</option>
-                <option value="25">25</option>
                 <option value="50">50</option>
                 <option value="100">100</option>
+                <option value="1000">1000</option>
               </select>
             </div>
           </div>
@@ -275,7 +275,7 @@
             <table class="data-grid" id="sales-data-table">
               <thead>
                 <tr>
-                  <th>ID</th>
+                  <th data-label="ID">ID</th>
                   <th>Year</th>
                   <th>Make</th>
                   <th>Model</th>
@@ -323,11 +323,11 @@
                 <label for="sql-examples-select">Templates:</label>
                 <select id="sql-examples-select">
                   <option value="" disabled selected>Select a sample query...</option>
-                  <option value="SELECT * FROM car_sales LIMIT 10;">1. Select First 10 Records</option>
-                  <option value="SELECT make, COUNT(*) AS sales_count, SUM(sellingprice) AS total_revenue FROM car_sales GROUP BY make ORDER BY sales_count DESC LIMIT 10;">2. Top 10 Makes by Sales &amp; Revenue</option>
-                  <option value="SELECT year, AVG(sellingprice) AS avg_price, AVG(odometer) AS avg_mileage FROM car_sales GROUP BY year ORDER BY year DESC;">3. Year-over-Year Averages</option>
-                  <option value="SELECT transmission, COUNT(*) AS total, AVG(condition) AS avg_condition FROM car_sales GROUP BY transmission;">4. Transmission vs Condition Analysis</option>
-                  <option value="SELECT state, COUNT(*) AS count, SUM(sellingprice - mmr) AS total_profit FROM car_sales GROUP BY state ORDER BY total_profit DESC LIMIT 5;">5. Top 5 Most Profitable States</option>
+                  <option value="SELECT make AS `Make`, COUNT(*) AS `Sales Volume` FROM car_sales GROUP BY make ORDER BY `Sales Volume` DESC LIMIT 5;">1. Top 5 Vehicle Makes by Sales Volume (SQL GROUP BY)</option>
+                  <option value="SELECT make AS `Make`, AVG(sellingprice - mmr) AS `Average Profit/Loss` FROM car_sales GROUP BY make ORDER BY `Average Profit/Loss` DESC LIMIT 5;">2. Top 5 Most Profitable Vehicle Makes (Average Profit/Loss)</option>
+                  <option value="SELECT saleday AS `Day of Week`, COUNT(*) AS `Sales Volume`, SUM(sellingprice - mmr) AS `Total Profit/Loss` FROM car_sales GROUP BY saleday, WEEKDAY(saledate) ORDER BY WEEKDAY(saledate) ASC;">3. Weekly Sales Volume and Profit Trend (SQL Days)</option>
+                  <option value="SELECT YEAR(saledate) AS `Year`, MONTHNAME(saledate) AS `Month`, COUNT(*) AS `Sales Volume`, SUM(sellingprice - mmr) AS `Total Profit/Loss` FROM car_sales GROUP BY YEAR(saledate), MONTHNAME(saledate), MONTH(saledate) ORDER BY YEAR(saledate) ASC, MONTH(saledate) ASC;">4. Monthly Sales Volume and Profit Trend (SQL Dates)</option>
+                  <option value="SELECT transmission AS `Transmission`, COUNT(*) AS `Sales Volume`, AVG(sellingprice) AS `Average Price`, AVG(sellingprice - mmr) AS `Average Profit/Loss` FROM car_sales GROUP BY transmission;">5. Transmission Type Comparison</option>
                 </select>
               </div>
             </div>

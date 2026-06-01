@@ -106,7 +106,7 @@ def main():
         cursor.execute("TRUNCATE TABLE car_sales")
         print(f"[+] Existing table records truncated to ensure a clean insert of the {len(cleaned_records)} sorted records.")
 
-        batch_size = 5000
+        batch_size = 1000
         total_inserted = 0
         for i in range(0, len(insert_data), batch_size):
             batch = insert_data[i:i+batch_size]

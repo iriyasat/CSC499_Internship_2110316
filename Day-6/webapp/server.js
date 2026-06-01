@@ -131,6 +131,23 @@ app.get('/api/sales', asyncHandler(async (req, res) => {
     );
     const totalRecords = countRows[0].total;
 
+    // Determine ORDER BY clause (support server-side sorting via query params)
+    const requestedSortField = (req.query.sortField || '').trim();
+    const requestedSortOrder = (req.query.sortOrder || '').toLowerCase() === 'asc' ? 'ASC' : 'DESC';
+
+    // Whitelist sortable fields to prevent injection
+    const allowedSortFields = new Set(['id','year','make','model','trim','body','transmission','odometer','condition','state','mmr','sellingprice','profit_loss','saledate']);
+
+    let orderSql = 'ORDER BY saledate DESC, id DESC';
+    if (requestedSortField && allowedSortFields.has(requestedSortField)) {
+      if (requestedSortField === 'profit_loss') {
+        orderSql = `ORDER BY (sellingprice - mmr) ${requestedSortOrder}, id DESC`;
+      } else {
+        // Use backticks for column names
+        orderSql = `ORDER BY \`${requestedSortField}\` ${requestedSortOrder}, id DESC`;
+      }
+    }
+
     // Fetch matching rows
     const selectSql = `
       SELECT 
@@ -140,10 +157,10 @@ app.get('/api/sales', asyncHandler(async (req, res) => {
         (sellingprice - mmr) AS profit_loss
       FROM car_sales 
       ${whereSql}
-      ORDER BY saledate DESC, id DESC
+      ${orderSql}
       LIMIT ? OFFSET ?
     `;
-    
+
     const queryParams = [...params, limit, offset];
     const [sales] = await connection.query(selectSql, queryParams);
 
