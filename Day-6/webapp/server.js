@@ -98,6 +98,36 @@ app.get('/api/sales', asyncHandler(async (req, res) => {
   const make = req.query.make || '';
   const year = req.query.year || '';
   const transmission = req.query.transmission || '';
+  const sortField = req.query.sortField || 'id';
+  const sortOrder = req.query.sortOrder || 'asc';
+
+  // Whitelist fields to prevent SQL injection
+  const allowedSortFields = [
+    'id', 'year', 'make', 'model', 'trim', 'body', 'transmission', 
+    'odometer', 'condition', 'state', 'mmr', 'sellingprice', 'profit_loss', 'saledate'
+  ];
+  const fieldToSql = {
+    'id': 'id',
+    'year': 'year',
+    'make': 'make',
+    'model': 'model',
+    'trim': 'trim',
+    'body': 'body',
+    'transmission': 'transmission',
+    'odometer': 'odometer',
+    'condition': '`condition`',
+    'state': 'state',
+    'mmr': 'mmr',
+    'sellingprice': 'sellingprice',
+    'profit_loss': '(sellingprice - mmr)',
+    'saledate': 'saledate'
+  };
+
+  let orderBySql = 'ORDER BY id ASC';
+  if (sortField && allowedSortFields.includes(sortField)) {
+    const direction = sortOrder.toLowerCase() === 'desc' ? 'DESC' : 'ASC';
+    orderBySql = `ORDER BY ${fieldToSql[sortField]} ${direction}, id ${direction}`;
+  }
 
   const connection = await pool.getConnection();
   try {
@@ -130,24 +160,6 @@ app.get('/api/sales', asyncHandler(async (req, res) => {
       params
     );
     const totalRecords = countRows[0].total;
-
-    // Determine ORDER BY clause (support server-side sorting via query params)
-    const requestedSortField = (req.query.sortField || '').trim();
-    const requestedSortOrder = (req.query.sortOrder || '').toLowerCase() === 'asc' ? 'ASC' : 'DESC';
-
-    // Whitelist sortable fields to prevent injection
-    const allowedSortFields = new Set(['id','year','make','model','trim','body','transmission','odometer','condition','state','mmr','sellingprice','profit_loss','saledate']);
-
-    let orderSql = 'ORDER BY saledate DESC, id DESC';
-    if (requestedSortField && allowedSortFields.has(requestedSortField)) {
-      if (requestedSortField === 'profit_loss') {
-        orderSql = `ORDER BY (sellingprice - mmr) ${requestedSortOrder}, id DESC`;
-      } else {
-        // Use backticks for column names
-        orderSql = `ORDER BY \`${requestedSortField}\` ${requestedSortOrder}, id DESC`;
-      }
-    }
-
     // Fetch matching rows
     const selectSql = `
       SELECT 
@@ -157,7 +169,7 @@ app.get('/api/sales', asyncHandler(async (req, res) => {
         (sellingprice - mmr) AS profit_loss
       FROM car_sales 
       ${whereSql}
-      ${orderSql}
+      ${orderBySql}
       LIMIT ? OFFSET ?
     `;
 

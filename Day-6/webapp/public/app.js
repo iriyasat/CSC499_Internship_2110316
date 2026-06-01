@@ -28,7 +28,7 @@ const state = {
 };
 
 // Client-side table sorting state
-state.databaseSort = { field: null, order: 'asc' };
+state.databaseSort = { field: 'id', order: 'asc' };
 
 // Utilities & Formatting
 const formatCurrency = (val) => {
@@ -832,12 +832,8 @@ function renderSalesRows(sales) {
     const dateRaw = new Date(row.saledate);
     const dateStr = isNaN(dateRaw) ? row.saledate : dateRaw.toISOString().split('T')[0];
 
-    // Compute human-friendly row number based on pagination offset
-    const rowNumber = ((state.pagination.page - 1) * state.pagination.limit) + idx + 1;
-
     rowsHtml += `
       <tr>
-        <td>${rowNumber}</td>
         <td>${row.id}</td>
         <td>${row.year}</td>
         <td><strong>${row.make}</strong></td>
@@ -849,7 +845,7 @@ function renderSalesRows(sales) {
         <td>${formatDecimal(row.condition, 1)}</td>
         <td>${row.state}</td>
         <td>${formatCurrency(row.mmr)}</td>
-        <td><strong>${formatCurrency(row.sellingprice)}</strong></td>
+        <td>${formatCurrency(row.sellingprice)}</td>
         <td><span class="${badgeClass}">${marginStr}</span></td>
         <td>${dateStr} (${row.saleday})</td>
         <td>
@@ -876,6 +872,13 @@ function initTableSorting() {
     const label = th.dataset.label || th.innerText.trim();
     if (!th.dataset.label) th.dataset.label = label;
     th.style.cursor = 'pointer';
+
+    // Show initial sorting arrow if field matches the current state
+    const field = mapHeaderToField(label);
+    if (field === state.databaseSort.field) {
+      th.innerText = label + (state.databaseSort.order === 'asc' ? ' ▲' : ' ▼');
+    }
+
     th.addEventListener('click', () => {
       const field = mapHeaderToField(th.dataset.label);
       if (!field) return;

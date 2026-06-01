@@ -1253,3 +1253,43 @@ body {
   }
 }
 
+/* Contextual Database Filters Horizontal Alignment */
+.database-filters-bar {
+  display: flex;
+  align-items: flex-end;
+  gap: 1.25rem;
+  background: rgba(15, 23, 42, 0.45);
+  border: 1px solid var(--border-color);
+  padding: 1.25rem;
+  border-radius: 14px;
+  margin-bottom: 1.5rem;
+  flex-wrap: wrap;
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  box-shadow: var(--shadow-lg);
+}
+
+.database-filters-bar .filter-group {
+  flex: 1;
+  min-width: 160px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.database-filters-bar .search-filter-group {
+  flex: 2.2;
+  min-width: 250px;
+}
+
+.database-filters-bar .reset-btn {
+  height: 38px;
+  margin-bottom: 0;
+  padding: 0 1.25rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+

@@ -221,42 +221,6 @@
             <div class="left-controls">
               <h3>Vehicle Sales Records</h3>
               <p id="table-totals-label">Showing records...</p>
-              <!-- Inline filter controls moved here from sidebar for contextual use -->
-              <div class="filters-section">
-                <h3>Filter Controls</h3>
-                <div class="filter-group">
-                  <label for="search-input">Global Search</label>
-                  <div class="search-box">
-                    <input type="text" id="search-input" placeholder="VIN, Model, Seller...">
-                    <span class="search-clear" id="search-clear-btn" style="display:none;">&times;</span>
-                  </div>
-                </div>
-
-                <div class="filter-group">
-                  <label for="filter-make">Vehicle Make</label>
-                  <select id="filter-make">
-                    <option value="">All Makes</option>
-                  </select>
-                </div>
-
-                <div class="filter-group">
-                  <label for="filter-year">Model Year</label>
-                  <select id="filter-year">
-                    <option value="">All Years</option>
-                  </select>
-                </div>
-
-                <div class="filter-group">
-                  <label for="filter-transmission">Transmission</label>
-                  <select id="filter-transmission">
-                    <option value="">All Types</option>
-                    <option value="automatic">Automatic</option>
-                    <option value="manual">Manual</option>
-                  </select>
-                </div>
-
-                <button class="reset-btn" id="reset-filters-btn">Reset Filters</button>
-              </div>
             </div>
             <div class="right-controls">
               <button class="add-record-btn" id="add-record-btn"><span class="btn-icon">＋</span> Add New Record</button>
@@ -270,12 +234,48 @@
             </div>
           </div>
 
+          <!-- Dedicated Database Filter Bar -->
+          <div class="database-filters-bar">
+            <div class="filter-group search-filter-group">
+              <label for="search-input">Global Search</label>
+              <div class="search-box">
+                <input type="text" id="search-input" placeholder="VIN, Model, Seller...">
+                <span class="search-clear" id="search-clear-btn" style="display:none;">&times;</span>
+              </div>
+            </div>
+
+            <div class="filter-group">
+              <label for="filter-make">Vehicle Make</label>
+              <select id="filter-make">
+                <option value="">All Makes</option>
+              </select>
+            </div>
+
+            <div class="filter-group">
+              <label for="filter-year">Model Year</label>
+              <select id="filter-year">
+                <option value="">All Years</option>
+              </select>
+            </div>
+
+            <div class="filter-group">
+              <label for="filter-transmission">Transmission</label>
+              <select id="filter-transmission">
+                <option value="">All Types</option>
+                <option value="automatic">Automatic</option>
+                <option value="manual">Manual</option>
+              </select>
+            </div>
+
+            <button class="reset-btn" id="reset-filters-btn">Reset Filters</button>
+          </div>
+
           <!-- Responsive Data Grid -->
           <div class="table-wrapper">
             <table class="data-grid" id="sales-data-table">
               <thead>
                 <tr>
-                  <th data-label="ID">ID</th>
+                  <th>ID</th>
                   <th>Year</th>
                   <th>Make</th>
                   <th>Model</th>
