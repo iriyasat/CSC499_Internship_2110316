@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Vehicle Sales Analytics Dashboard - Real-time Database Reporting & Analytics">
+  <title>Vehicle Sales Analytics Dashboard</title>
+  <!-- Google Fonts: Outfit & Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <!-- CSS Stylesheet -->
+  <link rel="stylesheet" href="style.css">
+  <!-- Chart.js CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+  <div class="dashboard-wrapper">
+    <!-- Sidebar Navigation & Filters -->
+    <aside class="sidebar" id="main-sidebar">
+      <div class="logo-area">
+        <div class="logo-icon">🚗</div>
+        <div class="logo-text">
+          <h1>AutoAnalytics</h1>
+          <span>MIS Insights Portal</span>
+        </div>
+      </div>
+
+      <nav class="nav-menu">
+        <button class="nav-btn active" data-tab="tab-charts" id="nav-btn-charts">
+          <span class="btn-icon">📊</span> Dashboard
+        </button>
+        <button class="nav-btn" data-tab="tab-pivot" id="nav-btn-pivot">
+          <span class="btn-icon">🧩</span> Pivot Analysis
+        </button>
+        <button class="nav-btn" data-tab="tab-database" id="nav-btn-database">
+          <span class="btn-icon">🗄️</span> Sales Database
+        </button>
+
+      </nav>
+
+      <hr class="sidebar-divider">
+
+      <!-- Filter Controls Panel -->
+      <div class="filters-section">
+        <h3>Filter Controls</h3>
+        
+        <div class="filter-group">
+          <label for="search-input">Global Search</label>
+          <div class="search-box">
+            <input type="text" id="search-input" placeholder="VIN, Model, Seller...">
+            <span class="search-clear" id="search-clear-btn" style="display:none;">&times;</span>
+          </div>
+        </div>
+
+        <div class="filter-group">
+          <label for="filter-make">Vehicle Make</label>
+          <select id="filter-make">
+            <option value="">All Makes</option>
+          </select>
+        </div>
+
+        <div class="filter-group">
+          <label for="filter-year">Model Year</label>
+          <select id="filter-year">
+            <option value="">All Years</option>
+          </select>
+        </div>
+
+        <div class="filter-group">
+          <label for="filter-transmission">Transmission</label>
+          <select id="filter-transmission">
+            <option value="">All Types</option>
+            <option value="automatic">Automatic</option>
+            <option value="manual">Manual</option>
+          </select>
+        </div>
+
+        <button class="reset-btn" id="reset-filters-btn">Reset Filters</button>
+      </div>
+
+      <div class="sidebar-footer">
+        <div class="status-indicator">
+          <span class="status-dot online"></span>
+          <span>MySQL Database Live</span>
+        </div>
+        <div class="db-port-info">Port: 33007</div>
+      </div>
+    </aside>
+
+    <!-- Main Content Area -->
+    <main class="main-content">
+      <!-- Top Header Summary Metrics -->
+      <header class="dashboard-header">
+        <div class="welcome-block">
+          <h2>Vehicle Sales Performance</h2>
+          <p id="cohort-range">Loading live chronological transaction reporting cohorts...</p>
+        </div>
+      </header>
+
+      <!-- KPI Summary Cards Grid -->
+      <section class="kpi-grid" id="kpi-dashboard-grid">
+        <!-- Total Sales -->
+        <div class="kpi-card" id="kpi-sales-count">
+          <div class="kpi-header">
+            <span>Total Sales Volume</span>
+            <span class="kpi-icon">📈</span>
+          </div>
+          <div class="kpi-val" id="metric-total-sales">-</div>
+          <div class="kpi-sub">Cleaned database rows</div>
+        </div>
+
+        <!-- Total Revenue -->
+        <div class="kpi-card" id="kpi-revenue">
+          <div class="kpi-header">
+            <span>Total Revenue</span>
+            <span class="kpi-icon">💰</span>
+          </div>
+          <div class="kpi-val text-primary" id="metric-total-revenue">-</div>
+          <div class="kpi-sub">Sum of selling prices</div>
+        </div>
+
+        <!-- Average Profit/Loss -->
+        <div class="kpi-card" id="kpi-profit">
+          <div class="kpi-header">
+            <span>Average Margin (Profit)</span>
+            <span class="kpi-icon" id="margin-icon">📈</span>
+          </div>
+          <div class="kpi-val" id="metric-avg-profit">-</div>
+          <div class="kpi-sub">Avg of (Selling Price - MMR)</div>
+        </div>
+
+        <!-- Average Odometer -->
+        <div class="kpi-card" id="kpi-odometer">
+          <div class="kpi-header">
+            <span>Average Mileage</span>
+            <span class="kpi-icon">🚗</span>
+          </div>
+          <div class="kpi-val" id="metric-avg-odometer">-</div>
+          <div class="kpi-sub">Odometer value (miles)</div>
+        </div>
+
+        <!-- Average Condition -->
+        <div class="kpi-card" id="kpi-condition">
+          <div class="kpi-header">
+            <span>Average Condition</span>
+            <span class="kpi-icon">⭐</span>
+          </div>
+          <div class="kpi-val" id="metric-avg-condition">-</div>
+          <div class="kpi-sub">Scale: 0.0 to 50.0</div>
+        </div>
+      </section>
+
+      <!-- Dynamic Tab Views Content -->
+      <div class="tab-content active" id="tab-charts">
+        <!-- Row 1: Main Aggregates -->
+        <div class="chart-row">
+          <div class="chart-container grid-col-7">
+            <div class="chart-header">
+              <h3>Monthly Performance and Sales Trend</h3>
+              <p>Revenues vs Margin trends over time</p>
+            </div>
+            <div class="canvas-wrapper">
+              <canvas id="monthlyTrendChart"></canvas>
+            </div>
+          </div>
+          
+          <div class="chart-container grid-col-5">
+            <div class="chart-header">
+              <h3>Sales Volume by Manufacturer</h3>
+              <p>Top 10 vehicle makes by row count</p>
+            </div>
+            <div class="canvas-wrapper">
+              <canvas id="makesVolumeChart"></canvas>
+            </div>
+          </div>
+        </div>
+
+        <!-- Row 2: Secondary Insights -->
+        <div class="chart-row mt-4">
+          <div class="chart-container grid-col-6">
+            <div class="chart-header">
+              <h3>Weekly Distribution Trend</h3>
+              <p>Sales volume and margins across weekdays</p>
+            </div>
+            <div class="canvas-wrapper">
+              <canvas id="weeklyDistributionChart"></canvas>
+            </div>
+          </div>
+
+          <div class="chart-container grid-col-6">
+            <div class="chart-header">
+              <h3>Transmission Comparison</h3>
+              <p>Automatic vs Manual distribution analysis</p>
+            </div>
+            <div class="canvas-wrapper">
+              <canvas id="transmissionCompareChart"></canvas>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Pivot Table Tab View -->
+      <div class="tab-content" id="tab-pivot">
+        <div class="pivot-workspace">
+          <!-- Pivot Configuration Controls -->
+          <div class="pivot-controls">
+            <div class="control-box">
+              <label for="pivot-row-select">Row Labels</label>
+              <select id="pivot-row-select">
+                <option value="make" selected>Vehicle Make</option>
+                <option value="transmission">Transmission</option>
+                <option value="year">Model Year</option>
+                <option value="state">State</option>
+                <option value="color">Exterior Color</option>
+                <option value="body">Body Type</option>
+                <option value="saleday">Sale Day</option>
+              </select>
+            </div>
+            <div class="arrow-separator">↔</div>
+            <div class="control-box">
+              <label for="pivot-col-select">Column Labels</label>
+              <select id="pivot-col-select">
+                <option value="make">Vehicle Make</option>
+                <option value="transmission" selected>Transmission</option>
+                <option value="year">Model Year</option>
+                <option value="state">State</option>
+                <option value="color">Exterior Color</option>
+                <option value="body">Body Type</option>
+                <option value="saleday">Sale Day</option>
+              </select>
+            </div>
+            <div class="arrow-separator">↔</div>
+            <div class="control-box">
+              <label for="pivot-metric-select">Pivot Values</label>
+              <select id="pivot-metric-select">
+                <option value="count" selected>Sales Count (Units)</option>
+                <option value="revenue">Total Revenue ($)</option>
+                <option value="avgPrice">Average Price ($)</option>
+                <option value="avgProfit">Average Margin ($)</option>
+              </select>
+            </div>
+            <button class="generate-btn" id="generate-pivot-btn">Generate Pivot</button>
+          </div>
+
+          <!-- Pivot Table Render Container -->
+          <div class="pivot-container card-panel">
+            <div class="pivot-header">
+              <h3 id="pivot-title-text">Vehicle Make vs. Transmission Matrix</h3>
+              <p>Dynamic pivot table aggregations generated directly on MySQL server</p>
+            </div>
+            <div class="table-wrapper pivot-table-wrapper">
+              <table id="pivot-render-table" class="data-grid">
+                <thead>
+                  <tr>
+                    <th>Loading Matrix...</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td>Please wait while data is processed.</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Sales Database Tab View -->
+      <div class="tab-content" id="tab-database">
+        <div class="table-container card-panel">
+          <div class="table-header-controls">
+            <div class="left-controls">
+              <h3>Vehicle Sales Records</h3>
+              <p id="table-totals-label">Showing records...</p>
+            </div>
+            <div class="right-controls">
+              <button class="add-record-btn" id="add-record-btn"><span class="btn-icon">＋</span> Add New Record</button>
+              <label for="table-limit-select">Rows per page:</label>
+              <select id="table-limit-select">
+                <option value="10" selected>10</option>
+                <option value="25">25</option>
+                <option value="50">50</option>
+                <option value="100">100</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Responsive Data Grid -->
+          <div class="table-wrapper">
+            <table class="data-grid" id="sales-data-table">
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>Year</th>
+                  <th>Make</th>
+                  <th>Model</th>
+                  <th>Trim</th>
+                  <th>Body</th>
+                  <th>Trans</th>
+                  <th>Odometer</th>
+                  <th>Condition</th>
+                  <th>State</th>
+                  <th>MMR</th>
+                  <th>Selling Price</th>
+                  <th>Margin</th>
+                  <th>Sale Date</th>
+                  <th class="actions-header">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="sales-table-body">
+                <tr>
+                  <td colspan="15" class="text-center">Loading database records...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Pagination Bar -->
+          <div class="pagination-bar">
+            <button class="pag-btn" id="pag-prev" disabled>Previous</button>
+            <div class="pag-info" id="pag-details">Page 1 of 1</div>
+            <button class="pag-btn" id="pag-next" disabled>Next</button>
+          </div>
+        </div>
+      </div>
+
+
+    </main>
+  </div>
+
+  <!-- CRUD Operations Modal (Form popup overlay) -->
+  <div class="modal-overlay" id="crud-modal">
+    <div class="modal-content card-panel">
+      <div class="modal-header">
+        <h3 id="modal-title">Add Vehicle Sale Record</h3>
+        <button class="close-modal-btn" id="close-modal-btn">&times;</button>
+      </div>
+      <form id="crud-form" class="crud-form-layout">
+        <!-- Hidden ID for edit mode -->
+        <input type="hidden" id="record-id">
+        
+        <div class="form-row">
+          <div class="form-group grid-col-4">
+            <label for="form-year">Model Year *</label>
+            <input type="number" id="form-year" required min="1900" max="2030">
+          </div>
+          <div class="form-group grid-col-4">
+            <label for="form-make">Make *</label>
+            <input type="text" id="form-make" required placeholder="Nissan, Ford...">
+          </div>
+          <div class="form-group grid-col-4">
+            <label for="form-model">Model *</label>
+            <input type="text" id="form-model" required placeholder="Altima, F-150...">
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group grid-col-4">
+            <label for="form-trim">Trim</label>
+            <input type="text" id="form-trim" placeholder="SV, XLT, base...">
+          </div>
+          <div class="form-group grid-col-4">
+            <label for="form-body">Body Type *</label>
+            <input type="text" id="form-body" required placeholder="Sedan, SUV, Crew Cab...">
+          </div>
+          <div class="form-group grid-col-4">
+            <label for="form-transmission">Transmission *</label>
+            <select id="form-transmission" required>
+              <option value="automatic">Automatic</option>
+              <option value="manual">Manual</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group grid-col-6">
+            <label for="form-vin">VIN Number *</label>
+            <input type="text" id="form-vin" required minlength="5" placeholder="17-digit alphanumeric">
+          </div>
+          <div class="form-group grid-col-3">
+            <label for="form-state">State *</label>
+            <input type="text" id="form-state" required placeholder="CA, TX, FL..." maxlength="10">
+          </div>
+          <div class="form-group grid-col-3">
+            <label for="form-condition">Condition (0.0 - 50.0) *</label>
+            <input type="number" id="form-condition" required step="0.1" min="0" max="50">
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group grid-col-4">
+            <label for="form-odometer">Odometer (mi) *</label>
+            <input type="number" id="form-odometer" required min="0">
+          </div>
+          <div class="form-group grid-col-4">
+            <label for="form-color">Exterior Color *</label>
+            <input type="text" id="form-color" required placeholder="Black, Silver...">
+          </div>
+          <div class="form-group grid-col-4">
+            <label for="form-interior">Interior Color *</label>
+            <input type="text" id="form-interior" required placeholder="Gray, Black...">
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group grid-col-12">
+            <label for="form-seller">Seller Name *</label>
+            <input type="text" id="form-seller" required placeholder="Nissan Motor Acceptance Corp...">
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group grid-col-4">
+            <label for="form-mmr">MMR Price Estimate ($) *</label>
+            <input type="number" id="form-mmr" required min="0">
+          </div>
+          <div class="form-group grid-col-4">
+            <label for="form-sellingprice">Selling Price ($) *</label>
+            <input type="number" id="form-sellingprice" required min="0">
+          </div>
+          <div class="form-group grid-col-4">
+            <label for="form-saledate">Sale Date *</label>
+            <input type="date" id="form-saledate" required>
+          </div>
+        </div>
+
+        <div class="form-actions-row">
+          <button type="button" class="cancel-modal-btn" id="cancel-modal-btn">Cancel</button>
+          <button type="submit" class="submit-modal-btn" id="submit-modal-btn">Save Record</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Main JavaScript App -->
+  <script src="app.js"></script>
+</body>
+</html>
