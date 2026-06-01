@@ -61,7 +61,7 @@ export default function App() {
     reader.onload = (e) => {
       try {
         const data = new Uint8Array(e.target.result);
-        const workbook = XLSX.read(data, { type: 'array' });
+        const workbook = XLSX.read(data, { type: 'array', sheetRows: 2 });
         const sheetName = workbook.SheetNames[0];
         const sheet = workbook.Sheets[sheetName];
         
@@ -70,7 +70,7 @@ export default function App() {
         if (json.length > 0) {
           const headers = json[0].filter(h => h !== null && h !== undefined && h !== '');
           setColumns(headers);
-          setTotalRawRows(json.length - 1);
+          setTotalRawRows(0); // will be loaded dynamically from server response
         }
       } catch (err) {
         console.error('Error parsing file locally:', err);
@@ -111,6 +111,7 @@ export default function App() {
       if (response.ok && result.success) {
         setCleanedData(result.data);
         setColumns(result.columns);
+        setTotalRawRows(result.originalCount);
         setStats({
           originalCount: result.originalCount,
           removedCount: result.removedCount,
@@ -248,7 +249,7 @@ export default function App() {
                       </div>
                       <div className="stat-card">
                         <span className="stat-label">Detected Records</span>
-                        <span className="stat-value primary">{totalRawRows.toLocaleString()}</span>
+                        <span className="stat-value primary">{totalRawRows > 0 ? totalRawRows.toLocaleString() : 'Ready to Clean'}</span>
                       </div>
                     </div>
 
