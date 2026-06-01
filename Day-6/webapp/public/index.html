@@ -36,7 +36,9 @@
         <button class="nav-btn" data-tab="tab-database" id="nav-btn-database">
           <span class="btn-icon">🗄️</span> Sales Database
         </button>
-
+        <button class="nav-btn" data-tab="tab-sql-runner" id="nav-btn-sql-runner">
+          <span class="btn-icon">💻</span> SQL Query Runner
+        </button>
       </nav>
 
       <hr class="sidebar-divider">
@@ -130,25 +132,6 @@
           <div class="kpi-sub">Avg of (Selling Price - MMR)</div>
         </div>
 
-        <!-- Average Odometer -->
-        <div class="kpi-card" id="kpi-odometer">
-          <div class="kpi-header">
-            <span>Average Mileage</span>
-            <span class="kpi-icon">🚗</span>
-          </div>
-          <div class="kpi-val" id="metric-avg-odometer">-</div>
-          <div class="kpi-sub">Odometer value (miles)</div>
-        </div>
-
-        <!-- Average Condition -->
-        <div class="kpi-card" id="kpi-condition">
-          <div class="kpi-header">
-            <span>Average Condition</span>
-            <span class="kpi-icon">⭐</span>
-          </div>
-          <div class="kpi-val" id="metric-avg-condition">-</div>
-          <div class="kpi-sub">Scale: 0.0 to 50.0</div>
-        </div>
       </section>
 
       <!-- Dynamic Tab Views Content -->
@@ -325,6 +308,63 @@
           </div>
         </div>
       </div>
+
+      <!-- SQL Query Runner Tab View -->
+      <div class="tab-content" id="tab-sql-runner">
+        <div class="sql-runner-workspace">
+          <!-- Editor Panel -->
+          <div class="card-panel sql-editor-panel">
+            <div class="panel-header-row">
+              <div class="left-hdr">
+                <h3>Interactive SQL Console</h3>
+                <p>Run ad-hoc MySQL queries against the live vehicle sales database</p>
+              </div>
+              <div class="right-hdr">
+                <label for="sql-examples-select">Templates:</label>
+                <select id="sql-examples-select">
+                  <option value="" disabled selected>Select a sample query...</option>
+                  <option value="SELECT * FROM car_sales LIMIT 10;">1. Select First 10 Records</option>
+                  <option value="SELECT make, COUNT(*) AS sales_count, SUM(sellingprice) AS total_revenue FROM car_sales GROUP BY make ORDER BY sales_count DESC LIMIT 10;">2. Top 10 Makes by Sales &amp; Revenue</option>
+                  <option value="SELECT year, AVG(sellingprice) AS avg_price, AVG(odometer) AS avg_mileage FROM car_sales GROUP BY year ORDER BY year DESC;">3. Year-over-Year Averages</option>
+                  <option value="SELECT transmission, COUNT(*) AS total, AVG(condition) AS avg_condition FROM car_sales GROUP BY transmission;">4. Transmission vs Condition Analysis</option>
+                  <option value="SELECT state, COUNT(*) AS count, SUM(sellingprice - mmr) AS total_profit FROM car_sales GROUP BY state ORDER BY total_profit DESC LIMIT 5;">5. Top 5 Most Profitable States</option>
+                </select>
+              </div>
+            </div>
+            
+            <div class="sql-editor-container">
+              <textarea id="sql-query-input" placeholder="-- Enter your SQL query here&#10;-- e.g. SELECT * FROM car_sales LIMIT 5;&#10;SELECT * FROM car_sales LIMIT 5;" spellcheck="false"></textarea>
+            </div>
+
+            <div class="sql-actions-row">
+              <button class="clear-btn" id="sql-clear-btn"><span class="btn-icon">🗑️</span> Clear Console</button>
+              <button class="execute-btn" id="sql-execute-btn"><span class="btn-icon">⚡</span> Execute Query</button>
+            </div>
+          </div>
+
+          <!-- Output Panel -->
+          <div class="card-panel sql-output-panel">
+            <div class="panel-header-row border-bottom">
+              <div class="left-hdr">
+                <h3>Execution Results</h3>
+                <p id="sql-status-details">No query executed yet.</p>
+              </div>
+              <div class="right-hdr text-muted" id="sql-meta-details" style="display: none;">
+                Execution time: <span id="sql-execution-time">0</span> ms &nbsp;|&nbsp; Rows: <span id="sql-row-count">0</span>
+              </div>
+            </div>
+            
+            <div class="sql-result-container" id="sql-result-container">
+              <div class="sql-placeholder-state">
+                <div class="placeholder-icon">💻</div>
+                <h4>Console Ready</h4>
+                <p>Type your query in the console above and click <strong>Execute Query</strong> to view database output.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
 
 
     </main>

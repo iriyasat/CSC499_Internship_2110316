@@ -329,6 +329,52 @@ app.get('/api/pivot', asyncHandler(async (req, res) => {
   });
 }));
 
+// 7. POST /api/query - SQL Query Runner API
+app.post('/api/query', asyncHandler(async (req, res) => {
+  const { query } = req.body;
+  if (!query || typeof query !== 'string') {
+    return res.status(400).json({ error: 'SQL query string is required' });
+  }
+
+  const connection = await pool.getConnection();
+  try {
+    const startTime = process.hrtime();
+    const [result, fields] = await connection.query(query);
+    const diff = process.hrtime(startTime);
+    const durationMs = (diff[0] * 1000 + diff[1] / 1000000).toFixed(2);
+
+    if (Array.isArray(result)) {
+      res.json({
+        success: true,
+        type: 'select',
+        rows: result,
+        fields: fields ? fields.map(f => f.name) : [],
+        durationMs,
+        affectedRows: 0
+      });
+    } else {
+      res.json({
+        success: true,
+        type: 'dml',
+        rows: [],
+        fields: [],
+        durationMs,
+        affectedRows: result.affectedRows || 0,
+        insertId: result.insertId || 0,
+        info: result.info || ''
+      });
+    }
+  } catch (err) {
+    res.status(400).json({
+      success: false,
+      error: err.message || 'Unknown database error'
+    });
+  } finally {
+    connection.release();
+  }
+}));
+
+
 // Error Handling Middleware
 app.use((err, req, res, next) => {
   console.error('[-] WebApp Server Error:', err);

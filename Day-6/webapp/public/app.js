@@ -44,6 +44,34 @@ const formatDecimal = (val, decimals = 1) => {
   return parseFloat(val).toFixed(decimals);
 };
 
+const barValueLabelsPlugin = {
+  id: 'barValueLabels',
+  afterDatasetsDraw(chart) {
+    const { ctx } = chart;
+
+    ctx.save();
+    ctx.fillStyle = '#f8fafc';
+    ctx.font = '600 12px Inter, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'bottom';
+
+    chart.data.datasets.forEach((dataset, datasetIndex) => {
+      const meta = chart.getDatasetMeta(datasetIndex);
+      if (meta.hidden) return;
+
+      meta.data.forEach((element, index) => {
+        const value = dataset.data[index];
+        if (value === null || value === undefined) return;
+
+        const { x, y } = element.tooltipPosition();
+        ctx.fillText(formatNumber(value), x, y - 6);
+      });
+    });
+
+    ctx.restore();
+  }
+};
+
 // Initialize Application
 document.addEventListener('DOMContentLoaded', () => {
   initNavigation();
@@ -51,6 +79,7 @@ document.addEventListener('DOMContentLoaded', () => {
   initPivotControls();
   initDatabasePagination();
   initCRUDHandlers();
+  initSqlRunner();
   
   // Initial load
   loadSummary();
@@ -117,9 +146,6 @@ async function loadSummary() {
       profitEl.className = 'kpi-val text-danger';
       profitIcon.innerText = '📉';
     }
-    
-    document.getElementById('metric-avg-odometer').innerText = `${formatNumber(m.avgOdometer)} mi`;
-    document.getElementById('metric-avg-condition').innerText = formatDecimal(m.avgCondition, 2);
     
     // Populate Dropdown Filters (Make & Year)
     populateDropdown('filter-make', data.filters.makes, 'All Makes');
@@ -356,9 +382,11 @@ function renderWeeklyChart(data) {
         backgroundColor: 'rgba(236, 72, 153, 0.65)',
         borderColor: '#ec4899',
         borderWidth: 1,
-        borderRadius: 8
+        borderRadius: 8,
+        minBarLength: 8
       }]
     },
+    plugins: [barValueLabelsPlugin],
     options: {
       responsive: true,
       maintainAspectRatio: false,
@@ -371,8 +399,17 @@ function renderWeeklyChart(data) {
           ticks: { color: '#94a3b8' }
         },
         y: {
+          beginAtZero: true,
+          beginAtZero: true,
+          beginAtZero: true,
           grid: { color: 'rgba(255, 255, 255, 0.05)' },
-          ticks: { color: '#94a3b8' }
+          ticks: {
+            color: '#94a3b8',
+            stepSize: 2500,
+            callback: function(val) {
+              return formatNumber(val);
+            }
+          }
         }
       }
     }
@@ -883,3 +920,175 @@ window.triggerDeleteRecord = async function(id) {
     }
   }
 };
+
+// 9. Tab 4: SQL Query Runner Controller
+function initSqlRunner() {
+  const queryInput = document.getElementById('sql-query-input');
+  const examplesSelect = document.getElementById('sql-examples-select');
+  const clearBtn = document.getElementById('sql-clear-btn');
+  const executeBtn = document.getElementById('sql-execute-btn');
+  const resultContainer = document.getElementById('sql-result-container');
+  const statusDetails = document.getElementById('sql-status-details');
+  const metaDetails = document.getElementById('sql-meta-details');
+  const executionTimeEl = document.getElementById('sql-execution-time');
+  const rowCountEl = document.getElementById('sql-row-count');
+
+  if (!executeBtn) return; // Guard clause in case HTML elements don't exist
+
+  // Template select handler
+  examplesSelect.addEventListener('change', (e) => {
+    queryInput.value = e.target.value;
+  });
+
+  // Clear handler
+  clearBtn.addEventListener('click', () => {
+    queryInput.value = '';
+    examplesSelect.value = '';
+    statusDetails.innerText = 'No query executed yet.';
+    metaDetails.style.display = 'none';
+    resultContainer.innerHTML = `
+      <div class="sql-placeholder-state">
+        <div class="placeholder-icon">💻</div>
+        <h4>Console Ready</h4>
+        <p>Type your query in the console above and click <strong>Execute Query</strong> to view database output.</p>
+      </div>
+    `;
+  });
+
+  // Execute query handler
+  executeBtn.addEventListener('click', async () => {
+    const sqlQuery = queryInput.value.trim();
+    if (!sqlQuery) {
+      alert('Please enter a SQL query to execute.');
+      return;
+    }
+
+    // Set loading state
+    statusDetails.innerText = 'Running query...';
+    metaDetails.style.display = 'none';
+    resultContainer.innerHTML = `
+      <div class="sql-loading-state">
+        <div class="spinner"></div>
+        <p>Executing statement on MySQL Server...</p>
+      </div>
+    `;
+    executeBtn.disabled = true;
+
+    try {
+      const res = await fetch('/api/query', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query: sqlQuery })
+      });
+      const data = await res.json();
+      executeBtn.disabled = false;
+
+      if (!data.success) {
+        // Handle database error
+        statusDetails.innerText = 'Query completed with errors.';
+        metaDetails.style.display = 'none';
+        resultContainer.innerHTML = `
+          <div class="sql-console-log error-log">
+            <div class="log-header">
+              <span class="icon">⚠️</span> MySQL Database Error
+            </div>
+            <div class="log-body">${data.error}</div>
+          </div>
+        `;
+        return;
+      }
+
+      // Handle successful execution
+      statusDetails.innerText = 'Query executed successfully.';
+      metaDetails.style.display = 'flex';
+      executionTimeEl.innerText = data.durationMs;
+
+      if (data.type === 'select') {
+        const rows = data.rows;
+        const fields = data.fields;
+        rowCountEl.innerText = `${rows.length} row(s)`;
+
+        if (rows.length === 0) {
+          resultContainer.innerHTML = `
+            <div class="sql-placeholder-state">
+              <div class="placeholder-icon">ℹ️</div>
+              <h4>Empty Set</h4>
+              <p>Query executed successfully, but returned 0 rows.</p>
+            </div>
+          `;
+          return;
+        }
+
+        // Render data grid
+        let tableHeaderHtml = fields.map(f => `<th>${f}</th>`).join('');
+        let tableBodyHtml = rows.map(row => {
+          let rowHtml = fields.map(field => {
+            let val = row[field];
+            if (val === null || val === undefined) return '<td><em>NULL</em></td>';
+            
+            // Render specific format styling
+            if (typeof val === 'number') {
+              const fieldLower = field.toLowerCase();
+              if (fieldLower.includes('price') || fieldLower.includes('revenue') || fieldLower.includes('profit') || fieldLower.includes('mmr') || fieldLower.includes('price')) {
+                return `<td>${formatCurrency(val)}</td>`;
+              }
+              return `<td>${formatNumber(val)}</td>`;
+            }
+            if (val instanceof Date || (typeof val === 'string' && val.match(/^\d{4}-\d{2}-\d{2}/))) {
+              const d = new Date(val);
+              return `<td>${isNaN(d.getTime()) ? val : d.toISOString().split('T')[0]}</td>`;
+            }
+            return `<td>${val}</td>`;
+          }).join('');
+          return `<tr>${rowHtml}</tr>`;
+        }).join('');
+
+        resultContainer.innerHTML = `
+          <table class="data-grid">
+            <thead><tr>${tableHeaderHtml}</tr></thead>
+            <tbody>${tableBodyHtml}</tbody>
+          </table>
+        `;
+      } else {
+        // DML query (INSERT, UPDATE, DELETE, etc.)
+        rowCountEl.innerText = '0 rows';
+        let msg = `Affected rows: ${data.affectedRows}`;
+        if (data.insertId) {
+          msg += ` | Inserted ID: ${data.insertId}`;
+        }
+        if (data.info) {
+          msg += ` | Info: ${data.info}`;
+        }
+
+        resultContainer.innerHTML = `
+          <div class="sql-console-log">
+            <div class="log-header">
+              <span class="icon">✅</span> Statement Completed
+            </div>
+            <div class="log-body">
+              ${msg}
+            </div>
+          </div>
+        `;
+        
+        // Proactively reload dashboard metrics/summary
+        loadSummary();
+      }
+
+    } catch (err) {
+      executeBtn.disabled = false;
+      console.error('[-] Fetch error executing query:', err);
+      statusDetails.innerText = 'Network error.';
+      metaDetails.style.display = 'none';
+      resultContainer.innerHTML = `
+        <div class="sql-console-log error-log">
+          <div class="log-header">
+            <span class="icon">❌</span> Connection Failed
+          </div>
+          <div class="log-body">Could not connect to the Express server API. Ensure the Node backend is running.</div>
+        </div>
+      `;
+    }
+  });
+}
+
