@@ -6,9 +6,7 @@ import argparse
 # Ensure imports from sibling modules work when running as a script
 sys.path.insert(0, os.path.dirname(__file__))
 
-from config import CSV_FILE_PATH, MAX_ROWS, DB_NAME
-from utils import clean_row
-from db import connect_mysql, setup_database, Error
+from db import CSV_FILE_PATH, MAX_ROWS, DB_NAME, clean_row, connect_mysql, setup_database, Error
 
 def main():
     parser = argparse.ArgumentParser(description="Vehicle Sales Data Pipeline")
@@ -106,13 +104,23 @@ def main():
     try:
         # Truncate existing records to avoid duplicate inserts on multiple runs
         cursor.execute("TRUNCATE TABLE car_sales")
-        print("[+] Existing table records truncated to ensure a clean insert of the 1500 sorted records.")
+        print(f"[+] Existing table records truncated to ensure a clean insert of the {len(cleaned_records)} sorted records.")
 
-        cursor.executemany(insert_query, insert_data)
+        batch_size = 1000
+        total_inserted = 0
+        for i in range(0, len(insert_data), batch_size):
+            batch = insert_data[i:i+batch_size]
+            cursor.executemany(insert_query, batch)
+            total_inserted += len(batch)
+            print(f"    - Inserted batch {i // batch_size + 1} ({len(batch)} records)...")
+
         conn.commit()
-        print(f"[+] Successfully inserted {cursor.rowcount} records into MySQL!")
+        print(f"[+] Successfully inserted {total_inserted} records into MySQL!")
     except Error as e:
-        conn.rollback()
+        try:
+            conn.rollback()
+        except Error as rollback_err:
+            print(f"[-] Rollback failed: {rollback_err}")
         print(f"[-] Database insert failed: {e}")
         sys.exit(1)
     finally:

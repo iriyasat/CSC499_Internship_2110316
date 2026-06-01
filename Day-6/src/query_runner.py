@@ -2,17 +2,11 @@ import os
 import sys
 import mysql.connector
 from mysql.connector import Error
-from dotenv import load_dotenv
 from tabulate import tabulate
 
-# Load environment variables
-load_dotenv()
-
-DB_HOST = os.getenv("DB_HOST", "localhost")
-DB_PORT = os.getenv("DB_PORT", "3306")
-DB_USER = os.getenv("DB_USER", "root")
-DB_PASSWORD = os.getenv("DB_PASSWORD", "")
-DB_NAME = os.getenv("DB_NAME", "vehicle_sales_db")
+# Ensure imports from sibling modules work when running as a script
+sys.path.insert(0, os.path.dirname(__file__))
+from db import DB_HOST, DB_PORT, DB_USER, DB_PASSWORD, DB_NAME
 
 def run_query(sql_query):
     try:

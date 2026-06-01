@@ -1,4 +1,82 @@
+import os
+import sys
 import datetime
+import mysql.connector
+from mysql.connector import Error
+from dotenv import load_dotenv
+
+# Find parent/root directory of 'src'
+current_dir = os.path.dirname(os.path.abspath(__file__))
+root_dir = os.path.dirname(current_dir)
+
+# Load environment variables from .env located in the root directory
+load_dotenv(dotenv_path=os.path.join(root_dir, ".env"))
+
+# Database Configuration
+DB_HOST = os.getenv("DB_HOST", "localhost")
+DB_PORT = os.getenv("DB_PORT", "3306")
+DB_USER = os.getenv("DB_USER", "root")
+DB_PASSWORD = os.getenv("DB_PASSWORD", "")
+DB_NAME = os.getenv("DB_NAME", "vehicle_sales_db")
+
+# CSV & Ingestion Configuration
+CSV_FILE_PATH = os.path.join(root_dir, "data", "car_prices.csv")
+MAX_ROWS = 1500
+
+
+def connect_mysql():
+    """Establishes connection to MySQL service."""
+    try:
+        conn = mysql.connector.connect(
+            host=DB_HOST,
+            port=int(DB_PORT),
+            user=DB_USER,
+            password=DB_PASSWORD
+        )
+        return conn
+    except Error as e:
+        print(f"[-] Error connecting to MySQL Server: {e}")
+        sys.exit(1)
+
+def setup_database(conn):
+    """Creates database and table if not exists."""
+    cursor = conn.cursor()
+    try:
+        cursor.execute(f"CREATE DATABASE IF NOT EXISTS {DB_NAME}")
+        print(f"[+] Database '{DB_NAME}' checked/created successfully.")
+        
+        cursor.execute(f"USE {DB_NAME}")
+        
+        create_table_query = """
+        CREATE TABLE IF NOT EXISTS car_sales (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            year INT,
+            make VARCHAR(50),
+            model VARCHAR(100),
+            trim VARCHAR(100),
+            body VARCHAR(50),
+            transmission VARCHAR(20),
+            vin VARCHAR(50),
+            state VARCHAR(10),
+            `condition` FLOAT,
+            odometer INT,
+            color VARCHAR(50),
+            interior VARCHAR(50),
+            seller VARCHAR(255),
+            mmr INT,
+            sellingprice INT,
+            saledate DATE,
+            saleday VARCHAR(20),
+            INDEX idx_vin (vin)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+        """
+        cursor.execute(create_table_query)
+        print("[+] Table 'car_sales' checked/created successfully.")
+    except Error as e:
+        print(f"[-] Error setting up database/table: {e}")
+        sys.exit(1)
+    finally:
+        cursor.close()
 
 def parse_saledate(date_str):
     """

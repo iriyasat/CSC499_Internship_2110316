@@ -5,7 +5,7 @@ from mysql.connector import Error
 
 # Ensure imports from sibling modules work when running as a script
 sys.path.insert(0, os.path.dirname(__file__))
-from config import DB_HOST, DB_PORT, DB_USER, DB_PASSWORD, DB_NAME
+from db import DB_HOST, DB_PORT, DB_USER, DB_PASSWORD, DB_NAME
 
 def verify_data():
     print("====================================================")

@@ -2,15 +2,11 @@ import os
 import sys
 import mysql.connector
 from mysql.connector import Error
-from dotenv import load_dotenv
 from tabulate import tabulate
 
-# Load environment variables
-load_dotenv()
-
-# Sibling paths config
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
-from config import DB_HOST, DB_PORT, DB_USER, DB_PASSWORD, DB_NAME
+# Ensure imports from sibling modules work when running as a script
+sys.path.insert(0, os.path.dirname(__file__))
+from db import DB_HOST, DB_PORT, DB_USER, DB_PASSWORD, DB_NAME
 
 def run_sql_query(cursor, query):
     """Utility to run a query and fetch all results."""
